@@ -8,15 +8,16 @@ function App() {
   const peerConnection = useRef();
 
   useEffect(() => {
-    socket.current = io('http://localhost:5001');
+    socket.current = io('https://43.200.137.185:5001');
 
-    // Offer를 처리하는 부분
+    // Offer를 받는 부분
     socket.current.on('offer', async (offer) => {
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         peerConnection.current = createPeerConnection();
       }
 
-      if (peerConnection.current.signalingState === 'stable') {
+      // 여기에 상태 확인 로직을 추가합니다.
+      if (peerConnection.current.signalingState !== 'have-local-offer') {
         try {
           await peerConnection.current.setRemoteDescription(offer);
           const answer = await peerConnection.current.createAnswer();
@@ -26,17 +27,19 @@ function App() {
           console.error('Error handling offer:', error);
         }
       } else {
-        console.warn('Received an offer in an unexpected state:', peerConnection.current.signalingState);
+        console.warn('Already have a local offer, ignoring incoming offer');
+        // 필요한 경우, 여기서 연결을 재설정하거나 다른 처리를 할 수 있습니다.
       }
     });
 
-    // Answer를 처리하는 부분ㄴ
+    // Answer를 받는 부분
     socket.current.on('answer', async (answer) => {
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         console.error('PeerConnection is not initialized or closed when trying to handle answer');
         return;
       }
 
+      // 여기에 상태 확인 로직을 추가합니다.
       if (peerConnection.current.signalingState === 'have-local-offer') {
         try {
           await peerConnection.current.setRemoteDescription(answer);
@@ -45,6 +48,7 @@ function App() {
         }
       } else {
         console.warn('Received an answer in an unexpected state:', peerConnection.current.signalingState);
+        // 필요한 경우, 여기서 연결을 재설정하거나 다른 처리를 할 수 있습니다.
       }
     });
 
