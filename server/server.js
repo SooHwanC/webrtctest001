@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const https = require('https');
 const fs = require('fs');
 const morgan = require('morgan'); // 로깅 미들웨어
 
@@ -15,7 +16,7 @@ const options = {
 };
 
 // HTTPS 서버 생성
-const server = http.createServer(options, app);
+const server = https.createServer(options, app);
 
 const io = socketIo(server, {
   cors: {
