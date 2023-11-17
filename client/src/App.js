@@ -13,29 +13,32 @@ function App() {
       rejectUnauthorized: false // 개발 환경에서 필요한 경우
     });
 
-    // Offer를 받는 부분
+    // Offer를 받는 부분에서 기존 연결 재설정 로직
     socket.current.on('offer', async (offer) => {
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         peerConnection.current = createPeerConnection();
       }
 
-      if (peerConnection.current.signalingState === 'stable') {
-        try {
-          await peerConnection.current.setRemoteDescription(offer);
-          const answer = await peerConnection.current.createAnswer();
-          await peerConnection.current.setLocalDescription(answer);
-          socket.current.emit('answer', answer);
-        } catch (error) {
-          console.error('Error handling offer:', error);
-        }
-      } else {
-        console.warn('Cannot set remote offer in current state:', peerConnection.current.signalingState);
+      if (peerConnection.current.signalingState !== 'stable') {
+        console.warn('Current PeerConnection state is not stable. Resetting connection.');
+        peerConnection.current.close(); // 현재 연결을 닫습니다.
+        peerConnection.current = createPeerConnection(); // 새 연결을 생성합니다.
+      }
+
+      try {
+        await peerConnection.current.setRemoteDescription(offer);
+        const answer = await peerConnection.current.createAnswer();
+        await peerConnection.current.setLocalDescription(answer);
+        socket.current.emit('answer', answer);
+      } catch (error) {
+        console.error('Error handling offer:', error);
       }
     });
 
+
     // Answer를 받는 부분
     socket.current.on('answer', async (answer) => {
-      if (peerConnection.current && peerConnection.current.signalingState === 'have-remote-offer') {
+      if (peerConnection.current && peerConnection.current.signalingState === 'have-local-offer') {
         try {
           await peerConnection.current.setRemoteDescription(answer);
         } catch (error) {
@@ -88,9 +91,13 @@ function App() {
         peerConnection.current.addTrack(track, stream);
       });
 
-      const offer = await peerConnection.current.createOffer();
-      await peerConnection.current.setLocalDescription(offer);
-      socket.current.emit('offer', offer);
+      if (peerConnection.current.signalingState === 'stable') {
+        const offer = await peerConnection.current.createOffer();
+        await peerConnection.current.setLocalDescription(offer);
+        socket.current.emit('offer', offer);
+      } else {
+        console.error('Cannot create offer in current state:', peerConnection.current.signalingState);
+      }
 
     } catch (error) {
       console.error('Error sharing the screen:', error);
