@@ -8,7 +8,12 @@ function App() {
   const peerConnection = useRef();
 
   useEffect(() => {
-    socket.current = io('https://43.200.137.185:5001');
+    // 프론트엔드: Websocket 연결 설정 변경
+    socket.current = io('wss://codebridge.site', {
+      secure: true,
+      rejectUnauthorized: false // 개발 환경에서 필요한 경우
+    });
+
 
     // Offer를 받는 부분
     socket.current.on('offer', async (offer) => {
