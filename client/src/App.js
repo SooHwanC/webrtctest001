@@ -8,11 +8,11 @@ function App() {
   const peerConnection = useRef();
 
   useEffect(() => {
-    // 프론트엔드: Websocket 연결 설정 변경
-    socket.current = io('wss://codebridge.site', {
+    socket.current = io('wss://codebridge.site/ws', {
       secure: true,
       rejectUnauthorized: false // 개발 환경에서 필요한 경우
     });
+
 
 
     // Offer를 받는 부분

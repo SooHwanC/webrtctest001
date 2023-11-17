@@ -1,41 +1,44 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const https = require('https');
 const fs = require('fs');
+const morgan = require('morgan'); // 로깅 미들웨어
 
 const app = express();
-// const server = http.createServer(app);
+
+// HTTP 요청 로깅
+app.use(morgan('dev'));
 
 const options = {
   key: fs.readFileSync('./private.key'),
   cert: fs.readFileSync('./certificate.crt')
 };
 
-const server = https.createServer(options, (req, res) => {
-  res.writeHead(200);
-  res.end('Hello, this is an HTTPS server!');
-})
+// HTTPS 서버 생성
+const server = http.createServer(options, app);
 
-
-
-const io = require("socket.io")(server, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
-  });
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 io.on('connection', (socket) => {
+  console.log('New WebSocket connection established');
+
   socket.on('offer', (offer) => {
+    console.log('Received an offer');
     socket.broadcast.emit('offer', offer);
   });
 
   socket.on('answer', (answer) => {
+    console.log('Received an answer');
     socket.broadcast.emit('answer', answer);
   });
 
   socket.on('candidate', (candidate) => {
+    console.log('Received an ICE candidate');
     socket.broadcast.emit('candidate', candidate);
   });
 });
