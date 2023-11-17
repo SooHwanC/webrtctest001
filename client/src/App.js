@@ -10,42 +10,49 @@ function App() {
   useEffect(() => {
     socket.current = io('https://43.200.137.185:5001', {
       secure: true,
-      rejectUnauthorized: false // 개발 환경에서 필요한 경우
+      rejectUnauthorized: false
     });
 
-    // Offer를 받는 부분에서 기존 연결 재설정 로직
+    // Offer 처리 부분
     socket.current.on('offer', async (offer) => {
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         peerConnection.current = createPeerConnection();
       }
 
-      if (peerConnection.current.signalingState !== 'stable') {
-        console.warn('Current PeerConnection state is not stable. Resetting connection.');
-        peerConnection.current.close(); // 현재 연결을 닫습니다.
-        peerConnection.current = createPeerConnection(); // 새 연결을 생성합니다.
-      }
-
-      try {
-        await peerConnection.current.setRemoteDescription(offer);
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-        socket.current.emit('answer', answer);
-      } catch (error) {
-        console.error('Error handling offer:', error);
+      if (peerConnection.current.signalingState === 'stable') {
+        try {
+          await peerConnection.current.setRemoteDescription(offer);
+          const answer = await peerConnection.current.createAnswer();
+          await peerConnection.current.setLocalDescription(answer);
+          socket.current.emit('answer', answer);
+        } catch (error) {
+          console.error('Error handling offer:', error);
+        }
+      } else {
+        // 잘못된 상태에서 오퍼 수신 시 연결 초기화
+        console.warn('Offer received in unexpected state:', peerConnection.current.signalingState);
+        resetConnection();
+        try {
+          await peerConnection.current.setRemoteDescription(offer);
+          const answer = await peerConnection.current.createAnswer();
+          await peerConnection.current.setLocalDescription(answer);
+          socket.current.emit('answer', answer);
+        } catch (error) {
+          console.error('Error after resetting connection:', error);
+        }
       }
     });
 
-
-    // Answer를 받는 부분
+    // Answer 처리 부분
     socket.current.on('answer', async (answer) => {
       if (peerConnection.current && peerConnection.current.signalingState === 'have-local-offer') {
         try {
           await peerConnection.current.setRemoteDescription(answer);
         } catch (error) {
-          console.error('Error setting remote description:', error);
+          console.error('Error setting remote answer:', error);
         }
       } else {
-        console.warn('Cannot set remote answer in current state:', peerConnection.current.signalingState);
+        console.warn('Answer received in unexpected state:', peerConnection.current.signalingState);
       }
     });
 
@@ -58,7 +65,7 @@ function App() {
           console.error('Error adding ICE candidate:', error);
         }
       } else {
-        console.warn('Remote description is not set or PeerConnection is closed. Cannot add ICE candidate');
+        console.warn('Cannot add ICE candidate:', peerConnection.current ? peerConnection.current.signalingState : 'No peerConnection');
       }
     });
   }, []);
@@ -81,6 +88,13 @@ function App() {
     return pc;
   };
 
+  const resetConnection = () => {
+    if (peerConnection.current) {
+      peerConnection.current.close();
+    }
+    peerConnection.current = createPeerConnection();
+  };
+
   const startScreenShare = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -96,7 +110,7 @@ function App() {
         await peerConnection.current.setLocalDescription(offer);
         socket.current.emit('offer', offer);
       } else {
-        console.error('Cannot create offer in current state:', peerConnection.current.signalingState);
+        console.error('Not in a stable state to create offer:', peerConnection.current.signalingState);
       }
 
     } catch (error) {
