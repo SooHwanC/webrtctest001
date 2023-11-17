@@ -13,42 +13,38 @@ function App() {
       rejectUnauthorized: false // 개발 환경에서 필요한 경우
     });
 
-
     // Offer를 받는 부분
     socket.current.on('offer', async (offer) => {
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         peerConnection.current = createPeerConnection();
       }
 
-      // 새로운 오퍼를 받으면 기존 연결을 닫고 새 연결을 시작합니다
-      if (peerConnection.current.signalingState === 'have-local-offer') {
-        peerConnection.current.close(); // 기존 연결을 닫습니다
-        peerConnection.current = createPeerConnection(); // 새 연결을 시작합니다
-      }
-
-      try {
-        await peerConnection.current.setRemoteDescription(offer);
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-        socket.current.emit('answer', answer);
-      } catch (error) {
-        console.error('Error handling offer:', error);
+      if (peerConnection.current.signalingState === 'stable') {
+        try {
+          await peerConnection.current.setRemoteDescription(offer);
+          const answer = await peerConnection.current.createAnswer();
+          await peerConnection.current.setLocalDescription(answer);
+          socket.current.emit('answer', answer);
+        } catch (error) {
+          console.error('Error handling offer:', error);
+        }
+      } else {
+        console.warn('Cannot set remote offer in current state:', peerConnection.current.signalingState);
       }
     });
 
     // Answer를 받는 부분
     socket.current.on('answer', async (answer) => {
-      if (peerConnection.current && peerConnection.current.signalingState !== 'closed') {
+      if (peerConnection.current && peerConnection.current.signalingState === 'have-remote-offer') {
         try {
           await peerConnection.current.setRemoteDescription(answer);
         } catch (error) {
           console.error('Error setting remote description:', error);
         }
       } else {
-        console.warn('Received an answer in an unexpected state:', peerConnection.current ? peerConnection.current.signalingState : 'No peerConnection');
+        console.warn('Cannot set remote answer in current state:', peerConnection.current.signalingState);
       }
     });
-
 
     // ICE Candidate 처리 부분
     socket.current.on('candidate', async (candidate) => {
@@ -62,9 +58,6 @@ function App() {
         console.warn('Remote description is not set or PeerConnection is closed. Cannot add ICE candidate');
       }
     });
-
-
-
   }, []);
 
   const createPeerConnection = () => {
