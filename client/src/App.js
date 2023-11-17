@@ -16,8 +16,7 @@ function App() {
         peerConnection.current = createPeerConnection();
       }
 
-      // 여기에 상태 확인 로직을 추가합니다.
-      if (peerConnection.current.signalingState !== 'have-local-offer') {
+      if (peerConnection.current.signalingState === 'stable') {
         try {
           await peerConnection.current.setRemoteDescription(offer);
           const answer = await peerConnection.current.createAnswer();
@@ -27,10 +26,10 @@ function App() {
           console.error('Error handling offer:', error);
         }
       } else {
-        console.warn('Already have a local offer, ignoring incoming offer');
-        // 필요한 경우, 여기서 연결을 재설정하거나 다른 처리를 할 수 있습니다.
+        console.warn('Received an offer in an unexpected state:', peerConnection.current.signalingState);
       }
     });
+
 
     // Answer를 받는 부분
     socket.current.on('answer', async (answer) => {
@@ -39,7 +38,6 @@ function App() {
         return;
       }
 
-      // 여기에 상태 확인 로직을 추가합니다.
       if (peerConnection.current.signalingState === 'have-local-offer') {
         try {
           await peerConnection.current.setRemoteDescription(answer);
@@ -48,19 +46,24 @@ function App() {
         }
       } else {
         console.warn('Received an answer in an unexpected state:', peerConnection.current.signalingState);
-        // 필요한 경우, 여기서 연결을 재설정하거나 다른 처리를 할 수 있습니다.
       }
     });
 
 
-    // Candidate를 처리하는 부분
+
+    // ICE Candidate 처리 부분
     socket.current.on('candidate', async (candidate) => {
       if (peerConnection.current && peerConnection.current.remoteDescription && peerConnection.current.remoteDescription.type) {
-        await peerConnection.current.addIceCandidate(candidate);
+        try {
+          await peerConnection.current.addIceCandidate(candidate);
+        } catch (error) {
+          console.error('Error adding ICE candidate:', error);
+        }
       } else {
         console.warn('Remote description is not set or PeerConnection is closed. Cannot add ICE candidate');
       }
     });
+
 
   }, []);
 
