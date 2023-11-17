@@ -15,33 +15,34 @@ function App() {
 
     // Offer 처리 부분
     socket.current.on('offer', async (offer) => {
+      // 연결 상태 체크 및 재설정 로직
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         peerConnection.current = createPeerConnection();
       }
 
-      if (peerConnection.current.signalingState === 'stable') {
-        try {
-          await peerConnection.current.setRemoteDescription(offer);
-          const answer = await peerConnection.current.createAnswer();
-          await peerConnection.current.setLocalDescription(answer);
-          socket.current.emit('answer', answer);
-        } catch (error) {
-          console.error('Error handling offer:', error);
-        }
-      } else {
-        // 잘못된 상태에서 오퍼 수신 시 연결 초기화
-        console.warn('Offer received in unexpected state:', peerConnection.current.signalingState);
+      if (peerConnection.current.signalingState !== 'stable') {
+        console.warn('Resetting connection due to unstable state during offer handling');
         resetConnection();
-        try {
-          await peerConnection.current.setRemoteDescription(offer);
-          const answer = await peerConnection.current.createAnswer();
-          await peerConnection.current.setLocalDescription(answer);
-          socket.current.emit('answer', answer);
-        } catch (error) {
-          console.error('Error after resetting connection:', error);
-        }
+      }
+
+      try {
+        await peerConnection.current.setRemoteDescription(offer);
+        const answer = await peerConnection.current.createAnswer();
+        await peerConnection.current.setLocalDescription(answer);
+        socket.current.emit('answer', answer);
+      } catch (error) {
+        console.error('Error handling offer:', error);
       }
     });
+
+    // 연결 재설정 로직
+    const resetConnection = () => {
+      if (peerConnection.current) {
+        peerConnection.current.close();
+      }
+      peerConnection.current = createPeerConnection();
+    };
+
 
     // Answer 처리 부분
     socket.current.on('answer', async (answer) => {
@@ -86,13 +87,6 @@ function App() {
     };
 
     return pc;
-  };
-
-  const resetConnection = () => {
-    if (peerConnection.current) {
-      peerConnection.current.close();
-    }
-    peerConnection.current = createPeerConnection();
   };
 
   const startScreenShare = async () => {
