@@ -20,8 +20,9 @@ function App() {
         peerConnection.current = createPeerConnection();
       }
 
-      if (peerConnection.current.signalingState !== 'stable') {
-        console.warn('Resetting connection due to unstable state during offer handling');
+      // signalingState가 'stable'이 아닐 때만 setRemoteDescription과 setLocalDescription을 진행
+      if (peerConnection.current.signalingState === 'stable') {
+        console.warn('Connection in stable state, resetting before handling offer');
         resetConnection();
       }
 
