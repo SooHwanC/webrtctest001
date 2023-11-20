@@ -13,6 +13,14 @@ function App() {
       rejectUnauthorized: false
     });
 
+    // 연결 재설정 로직
+    const resetConnection = () => {
+      if (peerConnection.current) {
+        peerConnection.current.close();
+      }
+      peerConnection.current = createPeerConnection();
+    };
+
     // Offer 처리 부분
     socket.current.on('offer', async (offer) => {
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
@@ -20,8 +28,9 @@ function App() {
       }
 
       if (peerConnection.current.signalingState !== 'stable') {
-        console.warn('연결 상태가 offer를 처리하기에 적합하지 않습니다.');
-        return; // 이 경우에는 처리를 중단합니다.
+        console.warn('연결 상태가 offer를 처리하기에 적합하지 않습니다. 연결을 재설정합니다.');
+        resetConnection();
+        return;
       }
 
       try {
@@ -41,10 +50,10 @@ function App() {
           await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
         } catch (error) {
           console.error('Answer 설정 중 오류 발생:', error);
+          resetConnection();
         }
       } else {
         console.warn('예상치 못한 상태에서 Answer를 받았습니다:', peerConnection.current.signalingState);
-        return; // 이 경우에도 처리를 중단합니다.
       }
     });
 
