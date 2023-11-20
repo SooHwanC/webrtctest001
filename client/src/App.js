@@ -15,18 +15,17 @@ function App() {
 
     // Offer 처리 부분
     socket.current.on('offer', async (offer) => {
-      // 연결 상태 체크 및 재설정 로직
       if (!peerConnection.current || peerConnection.current.signalingState === 'closed') {
         peerConnection.current = createPeerConnection();
       }
 
-      if (peerConnection.current.signalingState !== 'have-remote-offer') {
-        console.warn('연결 상태가 offer를 처리하기에 적합하지 않습니다. 연결을 재설정합니다.');
-        resetConnection();
+      if (peerConnection.current.signalingState !== 'stable') {
+        console.warn('연결 상태가 offer를 처리하기에 적합하지 않습니다.');
+        return; // 이 경우에는 처리를 중단합니다.
       }
 
       try {
-        await peerConnection.current.setRemoteDescription(offer);
+        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await peerConnection.current.createAnswer();
         await peerConnection.current.setLocalDescription(answer);
         socket.current.emit('answer', answer);
@@ -35,24 +34,17 @@ function App() {
       }
     });
 
-    // 연결 재설정 로직
-    const resetConnection = () => {
-      if (peerConnection.current) {
-        peerConnection.current.close();
-      }
-      peerConnection.current = createPeerConnection();
-    };
-
     // Answer 처리 부분
     socket.current.on('answer', async (answer) => {
       if (peerConnection.current && peerConnection.current.signalingState === 'have-local-offer') {
         try {
-          await peerConnection.current.setRemoteDescription(answer);
+          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
         } catch (error) {
           console.error('Answer 설정 중 오류 발생:', error);
         }
       } else {
         console.warn('예상치 못한 상태에서 Answer를 받았습니다:', peerConnection.current.signalingState);
+        return; // 이 경우에도 처리를 중단합니다.
       }
     });
 
@@ -60,7 +52,7 @@ function App() {
     socket.current.on('candidate', async (candidate) => {
       if (peerConnection.current && peerConnection.current.remoteDescription && peerConnection.current.remoteDescription.type) {
         try {
-          await peerConnection.current.addIceCandidate(candidate);
+          await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (error) {
           console.error('ICE candidate 추가 중 오류 발생:', error);
         }
