@@ -15,6 +15,8 @@ const options = {
   cert: fs.readFileSync('./certificate.crt')
 };
 
+
+// const server = http.createServer(app);
 // HTTPS 서버 생성
 const server = https.createServer(options, app);
 
