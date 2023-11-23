@@ -32,6 +32,7 @@ io.on('connection', (socket) => {
 
   socket.on('offer', (offer) => {
     console.log('Received an offer');
+    console.log('오퍼 확인', offer);
     socket.broadcast.emit('offer', offer);
   });
 
